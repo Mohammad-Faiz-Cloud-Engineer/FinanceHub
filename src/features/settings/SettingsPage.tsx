@@ -253,9 +253,9 @@ export function SettingsPage() {
             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Set App Lock PIN</h3>
             <div className="space-y-3">
               <input type="password" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                placeholder="4-digit PIN" className="w-full h-12 px-4 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--text-primary)] text-center text-2xl tracking-[0.5em] focus:outline-none focus:border-[var(--primary)]" />
+                placeholder="4-digit PIN" className="w-full h-12 px-4 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--text-primary)] text-center text-sm tracking-[0.5em] focus:outline-none focus:border-[var(--primary)]" />
               <input type="password" maxLength={4} value={confirmPin} onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
-                placeholder="Confirm PIN" className="w-full h-12 px-4 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--text-primary)] text-center text-2xl tracking-[0.5em] focus:outline-none focus:border-[var(--primary)]" />
+                placeholder="Confirm PIN" className="w-full h-12 px-4 rounded-xl border border-[var(--border)] bg-[var(--background)] text-[var(--text-primary)] text-center text-sm tracking-[0.5em] focus:outline-none focus:border-[var(--primary)]" />
               {pinError && <p className="text-xs text-red-500 text-center">{pinError}</p>}
             </div>
             <div className="flex gap-3 mt-4">
