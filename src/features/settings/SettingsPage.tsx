@@ -239,7 +239,7 @@ export function SettingsPage() {
       <div className="text-center py-6">
         <img src={logoSrc} alt="FinanceHub" className="w-12 h-12 mx-auto mb-3 opacity-60" />
         <p className="text-sm font-medium text-[var(--text-primary)]">FinanceHub</p>
-        <p className="text-xs text-[var(--text-tertiary)]">Version 1.0.0</p>
+        <p className="text-xs text-[var(--text-tertiary)]">Version 1.4.0</p>
         <p className="text-xs text-[var(--text-tertiary)] mt-1">Your personal finance companion</p>
       </div>
 
