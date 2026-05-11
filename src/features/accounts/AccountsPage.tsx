@@ -44,6 +44,16 @@ export function AccountsPage() {
     setEditingAccount(null);
   };
 
+  const getAccountTransactionDelta = (tx: typeof transactions[number], accountId: string) => {
+    if (tx.type === 'Income' && tx.accountId === accountId) return tx.amount;
+    if (tx.type === 'Expense' && tx.accountId === accountId) return -tx.amount;
+    if (tx.type === 'Transfer') {
+      if (tx.accountId === accountId) return -tx.amount;
+      if (tx.toAccountId === accountId) return tx.amount;
+    }
+    return 0;
+  };
+
   const handleSubmit = () => {
     if (!formData.bankName.trim() || !formData.accountNumber.trim() || !formData.accountHolderName.trim()) return;
     const balance = formData.balance === '' ? 0 : parseFloat(formData.balance) || 0;
@@ -121,7 +131,7 @@ export function AccountsPage() {
         <div className="space-y-4">
           {accounts.map((account, i) => {
             const accountTxs = transactions
-              .filter((t) => t.accountId === account.id)
+              .filter((t) => getAccountTransactionDelta(t, account.id) !== 0)
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
               .slice(0, 3);
 
@@ -234,21 +244,24 @@ export function AccountsPage() {
                       className="overflow-hidden"
                     >
                       <div className="border-t border-[var(--border)] divide-y divide-[var(--border)]">
-                        {accountTxs.map((tx) => (
-                          <div key={tx.id} className="flex items-center justify-between px-5 py-3">
-                            <div>
-                              <p className="text-sm text-[var(--text-primary)]">{tx.description}</p>
-                              <p className="text-xs text-[var(--text-tertiary)]">{tx.category}</p>
+                        {accountTxs.map((tx) => {
+                          const delta = getAccountTransactionDelta(tx, account.id);
+                          return (
+                            <div key={tx.id} className="flex items-center justify-between px-5 py-3">
+                              <div>
+                                <p className="text-sm text-[var(--text-primary)]">{tx.description}</p>
+                                <p className="text-xs text-[var(--text-tertiary)]">{tx.category}</p>
+                              </div>
+                              <span
+                                className={`text-sm font-semibold ${
+                                  delta >= 0 ? 'text-emerald-500' : 'text-red-500'
+                                }`}
+                              >
+                                {delta >= 0 ? '+' : '-'}{formatCurrency(Math.abs(delta))}
+                              </span>
                             </div>
-                            <span
-                              className={`text-sm font-semibold ${
-                                tx.type === 'Income' ? 'text-emerald-500' : 'text-red-500'
-                              }`}
-                            >
-                              {tx.type === 'Income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </motion.div>
                   )}

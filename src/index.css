@@ -2,6 +2,145 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --pwa-safe-area-top: env(safe-area-inset-top, 0px);
+  --pwa-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --pwa-theme-color: #F8F9FA;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: var(--background);
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+html.pwa-standalone,
+html.pwa-standalone body {
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  background-color: var(--background);
+}
+
+html.pwa-standalone body {
+  -webkit-overflow-scrolling: touch;
+}
+
+html.pwa-standalone #root,
+html.pwa-standalone .app-shell {
+  min-height: 100dvh;
+}
+
+html.pwa-standalone .app-header {
+  height: calc(4rem + var(--pwa-safe-area-top));
+  padding-top: var(--pwa-safe-area-top);
+}
+
+html.pwa-standalone .app-notification-panel {
+  top: calc(4rem + var(--pwa-safe-area-top));
+}
+
+html.pwa-standalone .app-bottom-nav {
+  height: calc(4rem + var(--pwa-safe-area-bottom));
+  padding-bottom: var(--pwa-safe-area-bottom);
+}
+
+html.pwa-standalone .app-bottom-nav-inner {
+  height: 4rem;
+}
+
+html.pwa-standalone main {
+  padding-top: var(--pwa-safe-area-top);
+  padding-bottom: var(--pwa-safe-area-bottom);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background-color: var(--primary-light);
+  color: white;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="date"] {
+  color-scheme: light dark;
+}
+
+.dark input[type="date"] {
+  color-scheme: dark;
+}
+
+button,
+[role="button"] {
+  user-select: none;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -79,36 +218,102 @@
 /* FinanceHub Theme Variables */
 :root {
   --background: #F8F9FA;
+  --foreground: #111827;
   --surface: #FFFFFF;
   --surface-elevated: #FFFFFF;
+  --card: #FFFFFF;
+  --card-foreground: #111827;
+  --popover: #FFFFFF;
+  --popover-foreground: #111827;
   --primary: #0F766E;
+  --primary-foreground: #FFFFFF;
   --primary-light: #14B8A6;
   --primary-dark: #0D5B56;
   --secondary: #6366F1;
+  --secondary-foreground: #FFFFFF;
   --accent: #F59E0B;
+  --accent-foreground: #111827;
   --success: #10B981;
   --danger: #EF4444;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --muted: #F8F9FA;
+  --muted-foreground: #6B7280;
+  --input: #E5E7EB;
+  --ring: #0F766E;
   --text-primary: #111827;
   --text-secondary: #6B7280;
   --text-tertiary: #9CA3AF;
   --border: #E5E7EB;
   --border-focus: #0F766E;
+  --background-hsl: 210 17% 98%;
+  --foreground-hsl: 221 39% 11%;
+  --card-hsl: 0 0% 100%;
+  --card-foreground-hsl: 221 39% 11%;
+  --popover-hsl: 0 0% 100%;
+  --popover-foreground-hsl: 221 39% 11%;
+  --primary-hsl: 176 78% 26%;
+  --primary-foreground-hsl: 0 0% 100%;
+  --secondary-hsl: 239 84% 67%;
+  --secondary-foreground-hsl: 0 0% 100%;
+  --muted-hsl: 210 17% 98%;
+  --muted-foreground-hsl: 220 9% 46%;
+  --accent-hsl: 38 92% 50%;
+  --accent-foreground-hsl: 221 39% 11%;
+  --destructive-hsl: 0 84% 60%;
+  --destructive-foreground-hsl: 0 0% 100%;
+  --border-hsl: 220 13% 91%;
+  --input-hsl: 220 13% 91%;
+  --ring-hsl: 176 78% 26%;
 }
 
 .dark {
   --background: #0A0A0A;
+  --foreground: #F9FAFB;
   --surface: #141414;
   --surface-elevated: #1C1C1C;
+  --card: #141414;
+  --card-foreground: #F9FAFB;
+  --popover: #1C1C1C;
+  --popover-foreground: #F9FAFB;
   --primary: #14B8A6;
+  --primary-foreground: #FFFFFF;
   --primary-light: #2DD4BF;
   --primary-dark: #0F766E;
   --secondary: #818CF8;
+  --secondary-foreground: #FFFFFF;
   --accent: #FBBF24;
+  --accent-foreground: #0A0A0A;
   --success: #34D399;
   --danger: #F87171;
+  --destructive: #F87171;
+  --destructive-foreground: #0A0A0A;
+  --muted: #141414;
+  --muted-foreground: #9CA3AF;
+  --input: #262626;
+  --ring: #14B8A6;
   --text-primary: #F9FAFB;
   --text-secondary: #9CA3AF;
   --text-tertiary: #6B7280;
   --border: #262626;
   --border-focus: #14B8A6;
+  --background-hsl: 0 0% 4%;
+  --foreground-hsl: 210 20% 98%;
+  --card-hsl: 0 0% 8%;
+  --card-foreground-hsl: 210 20% 98%;
+  --popover-hsl: 0 0% 11%;
+  --popover-foreground-hsl: 210 20% 98%;
+  --primary-hsl: 174 72% 40%;
+  --primary-foreground-hsl: 0 0% 100%;
+  --secondary-hsl: 239 84% 74%;
+  --secondary-foreground-hsl: 0 0% 100%;
+  --muted-hsl: 0 0% 8%;
+  --muted-foreground-hsl: 220 9% 64%;
+  --accent-hsl: 43 96% 56%;
+  --accent-foreground-hsl: 0 0% 4%;
+  --destructive-hsl: 0 91% 71%;
+  --destructive-foreground-hsl: 0 0% 4%;
+  --border-hsl: 0 0% 15%;
+  --input-hsl: 0 0% 15%;
+  --ring-hsl: 174 72% 40%;
 }

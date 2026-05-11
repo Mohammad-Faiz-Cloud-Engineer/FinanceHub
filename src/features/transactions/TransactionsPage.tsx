@@ -68,6 +68,9 @@ export function TransactionsPage() {
     setEditingTx(null);
   };
 
+  const transactionTouchesAccount = (tx: typeof transactions[number], accountId: string) =>
+    tx.accountId === accountId || tx.toAccountId === accountId;
+
   const handleSubmit = () => {
     const amount = parseFloat(formData.amount);
     if (!Number.isFinite(amount) || amount <= 0 || !formData.description.trim() || !formData.accountId || !formData.category) return;
@@ -126,7 +129,7 @@ export function TransactionsPage() {
     filteredTxs = filteredTxs.filter((t) => t.category === transactionFilters.category);
   }
   if (transactionFilters.account) {
-    filteredTxs = filteredTxs.filter((t) => t.accountId === transactionFilters.account);
+    filteredTxs = filteredTxs.filter((t) => transactionTouchesAccount(t, transactionFilters.account!));
   }
 
   // Group by date

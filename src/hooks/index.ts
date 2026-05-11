@@ -104,12 +104,17 @@ export function useScrollPosition() {
 // ============================================
 // Local Storage Hook
 // ============================================
+function markLocalStorageUnavailable(): void {
+  document.documentElement.dataset.localStorage = 'unavailable';
+}
+
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
   const [stored, setStored] = useState<T>(() => {
     try {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch {
+      markLocalStorageUnavailable();
       return initialValue;
     }
   });
@@ -121,7 +126,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
         try {
           localStorage.setItem(key, JSON.stringify(next));
         } catch {
-          // ignore
+          markLocalStorageUnavailable();
         }
         return next;
       });

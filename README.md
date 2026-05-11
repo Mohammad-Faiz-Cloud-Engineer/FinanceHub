@@ -20,7 +20,7 @@ A modern, mobile-first personal finance management application built with React,
 
 ## Tech Stack
 
-- **React 18** - UI library
+- **React 19** - UI library
 - **TypeScript** - Type safety
 - **Vite** - Build tool and dev server
 - **Tailwind CSS** - Utility-first styling
@@ -53,7 +53,7 @@ cd FinanceHub
 ### 3. Install dependencies
 
 ```bash
-npm install
+npm ci
 ```
 
 This will install all required packages including:

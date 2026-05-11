@@ -77,6 +77,7 @@ const MAX_TAGS = 20;
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 const MAX_FAILED_PIN_ATTEMPTS = 5;
 const PIN_LOCKOUT_MINUTES = 5;
+const MAX_PIN_HASH_LENGTH = 192;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -144,10 +145,26 @@ function isBudgetPeriod(value: unknown): value is Budget['period'] {
   return value === 'Weekly' || value === 'Monthly' || value === 'Yearly';
 }
 
+function isRecurringFrequency(value: unknown): value is RecurringTransaction['frequency'] {
+  return value === 'Daily' || value === 'Weekly' || value === 'Monthly' || value === 'Yearly';
+}
+
+function isNotificationType(value: unknown): value is AppNotification['type'] {
+  return value === 'info' || value === 'success' || value === 'warning' || value === 'error';
+}
+
 function cleanTags(value: unknown): string[] {
   return Array.isArray(value)
     ? value.map((tag) => cleanText(tag, 32)).filter(Boolean).slice(0, MAX_TAGS)
     : [];
+}
+
+function transactionAccountIds(tx: Transaction): string[] {
+  return Array.from(new Set([tx.accountId, tx.toAccountId].filter((id): id is string => Boolean(id))));
+}
+
+function transactionTouchesAccount(tx: Transaction, accountId: string): boolean {
+  return tx.accountId === accountId || tx.toAccountId === accountId;
 }
 
 function transactionDelta(tx: Transaction): Record<string, number> {
@@ -221,7 +238,7 @@ function sanitizeSecurity(value: Partial<SecuritySettings> | undefined): Securit
   return {
     ...defaultSecurity,
     appLockEnabled: Boolean(value?.appLockEnabled && value.pinHash && value.pinSalt),
-    pinHash: cleanOptionalText(value?.pinHash, 128) ?? null,
+    pinHash: cleanOptionalText(value?.pinHash, MAX_PIN_HASH_LENGTH) ?? null,
     pinSalt: cleanOptionalText(value?.pinSalt, 64) ?? null,
     biometricEnabled: Boolean(value?.biometricEnabled),
     isLocked: Boolean(value?.appLockEnabled && value.pinHash && value.pinSalt),
@@ -305,7 +322,7 @@ function sanitizeRecurringRecord(value: unknown, accounts: Account[]): Recurring
   const accountId = cleanText(value.accountId, 80);
   const amount = toPositiveNumber(value.amount);
   if (!accounts.some((account) => account.id === accountId) || amount <= 0 || !isTransactionType(value.type)) return null;
-  if (value.frequency !== 'Daily' && value.frequency !== 'Weekly' && value.frequency !== 'Monthly' && value.frequency !== 'Yearly') return null;
+  if (!isRecurringFrequency(value.frequency)) return null;
   return {
     id: cleanText(value.id, 80) || generateId(),
     accountId,
@@ -320,6 +337,30 @@ function sanitizeRecurringRecord(value: unknown, accounts: Account[]): Recurring
     tags: cleanTags(value.tags),
     isActive: Boolean(value.isActive),
     createdAt: cleanText(value.createdAt, 40) || nowIso(),
+  };
+}
+
+function sanitizeRecurringInput(
+  value: Partial<RecurringTransaction>,
+  accounts: Account[]
+): Omit<RecurringTransaction, 'id' | 'createdAt'> | null {
+  const accountId = cleanText(value.accountId, 80);
+  const amount = toPositiveNumber(value.amount);
+  if (!accounts.some((account) => account.id === accountId) || amount <= 0 || !isTransactionType(value.type)) return null;
+  if (!isRecurringFrequency(value.frequency)) return null;
+
+  return {
+    accountId,
+    type: value.type,
+    amount,
+    description: cleanText(value.description),
+    category: cleanText(value.category),
+    frequency: value.frequency,
+    startDate: cleanDate(value.startDate),
+    endDate: isDateString(value.endDate) ? value.endDate : undefined,
+    nextDate: cleanDate(value.nextDate ?? value.startDate),
+    tags: cleanTags(value.tags),
+    isActive: Boolean(value.isActive),
   };
 }
 
@@ -420,6 +461,44 @@ function sanitizeBudgetRecord(value: unknown, categories: Category[]): Budget | 
     isActive: Boolean(value.isActive),
     createdAt: cleanText(value.createdAt, 40) || nowIso(),
     updatedAt: cleanText(value.updatedAt, 40) || nowIso(),
+  };
+}
+
+function sanitizeSettingsRecord(value: unknown): AppSettings {
+  if (!isRecord(value)) return defaultSettings;
+  return {
+    ...defaultSettings,
+    theme:
+      value.theme === 'light' || value.theme === 'dark' || value.theme === 'system'
+        ? value.theme
+        : defaultSettings.theme,
+    currency: cleanText(value.currency, 8) || defaultSettings.currency,
+    dateFormat: cleanText(value.dateFormat, 16) || defaultSettings.dateFormat,
+    numberFormat:
+      value.numberFormat === 'indian' || value.numberFormat === 'international'
+        ? value.numberFormat
+        : defaultSettings.numberFormat,
+    notificationsEnabled:
+      typeof value.notificationsEnabled === 'boolean'
+        ? value.notificationsEnabled
+        : defaultSettings.notificationsEnabled,
+    defaultAccountId: cleanOptionalText(value.defaultAccountId, 80),
+  };
+}
+
+function sanitizeNotificationRecord(value: unknown): AppNotification | null {
+  if (!isRecord(value) || !isNotificationType(value.type)) return null;
+  const title = cleanText(value.title);
+  const message = cleanText(value.message, 240);
+  if (!title || !message) return null;
+  return {
+    id: cleanText(value.id, 80) || generateId(),
+    title,
+    message,
+    type: value.type,
+    isRead: Boolean(value.isRead),
+    createdAt: cleanText(value.createdAt, 40) || nowIso(),
+    actionUrl: typeof value.actionUrl === 'string' && value.actionUrl.startsWith('/') ? cleanText(value.actionUrl, 120) : undefined,
   };
 }
 
@@ -602,7 +681,7 @@ export const useFinanceStore = create<FinanceStore>()(
 
       getTransactionsByAccount: (accountId: string) => {
         return get().transactions
-          .filter((t) => t.accountId === accountId)
+          .filter((t) => transactionTouchesAccount(t, accountId))
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       },
 
@@ -619,7 +698,7 @@ export const useFinanceStore = create<FinanceStore>()(
           txs = txs.filter((t) => t.category === filters.category);
         }
         if (filters.account) {
-          txs = txs.filter((t) => t.accountId === filters.account);
+          txs = txs.filter((t) => transactionTouchesAccount(t, filters.account!));
         }
         if (filters.dateFrom) {
           txs = txs.filter((t) => t.date >= filters.dateFrom!);
@@ -770,10 +849,14 @@ export const useFinanceStore = create<FinanceStore>()(
           bankName,
           accountNumber,
           accountHolderName,
+          accountType: account.accountType,
           nomineeName: cleanOptionalText(account.nomineeName),
           ifscCode: cleanOptionalText(account.ifscCode?.toUpperCase(), 11),
           branchName: cleanOptionalText(account.branchName),
           balance: toFiniteNumber(account.balance),
+          currency: cleanText(account.currency, 8) || 'INR',
+          color: cleanText(account.color, 24) || '#0F766E',
+          isPrimary: Boolean(account.isPrimary),
           id: generateId(),
           createdAt: nowIso(),
           updatedAt: nowIso(),
@@ -787,10 +870,14 @@ export const useFinanceStore = create<FinanceStore>()(
           bankName: data.bankName === undefined ? undefined : cleanText(data.bankName),
           accountNumber: data.accountNumber === undefined ? undefined : cleanText(data.accountNumber, 34),
           accountHolderName: data.accountHolderName === undefined ? undefined : cleanText(data.accountHolderName),
+          accountType: data.accountType === undefined || isAccountType(data.accountType) ? data.accountType : undefined,
           nomineeName: data.nomineeName === undefined ? undefined : cleanOptionalText(data.nomineeName),
           ifscCode: data.ifscCode === undefined ? undefined : cleanOptionalText(data.ifscCode.toUpperCase(), 11),
           branchName: data.branchName === undefined ? undefined : cleanOptionalText(data.branchName),
           balance: data.balance === undefined ? undefined : toFiniteNumber(data.balance),
+          currency: data.currency === undefined ? undefined : cleanText(data.currency, 8),
+          color: data.color === undefined ? undefined : cleanText(data.color, 24),
+          isPrimary: data.isPrimary === undefined ? undefined : Boolean(data.isPrimary),
         });
         set((state) => ({
           accounts: state.accounts.map((a) =>
@@ -814,6 +901,12 @@ export const useFinanceStore = create<FinanceStore>()(
             transactions: state.transactions.filter(
               (t) => t.accountId !== id && t.toAccountId !== id
             ),
+            recurringTransactions: state.recurringTransactions.filter((t) => t.accountId !== id),
+            settings:
+              state.settings.defaultAccountId === id
+                ? { ...state.settings, defaultAccountId: undefined }
+                : state.settings,
+            selectedAccountId: state.selectedAccountId === id ? null : state.selectedAccountId,
           };
         });
       },
@@ -845,7 +938,7 @@ export const useFinanceStore = create<FinanceStore>()(
           };
           const newTransactions = recalculateRunningBalances(
             [...state.transactions, newTx],
-            [newTx.accountId]
+            transactionAccountIds(newTx)
           );
           return {
             accounts: applyTransactionDelta(state.accounts, newTx, 1),
@@ -876,7 +969,7 @@ export const useFinanceStore = create<FinanceStore>()(
             updatedAt: nowIso(),
           };
           const replacedTransactions = state.transactions.map((t) => (t.id === id ? updatedTx : t));
-          const affectedAccountIds = Array.from(new Set([existing.accountId, updatedTx.accountId]));
+          const affectedAccountIds = Array.from(new Set([...transactionAccountIds(existing), ...transactionAccountIds(updatedTx)]));
 
           return {
             accounts: applyTransactionDelta(
@@ -895,7 +988,7 @@ export const useFinanceStore = create<FinanceStore>()(
           if (!tx) return {};
           const remainingTransactions = state.transactions.filter((t) => t.id !== id);
           return {
-            transactions: recalculateRunningBalances(remainingTransactions, [tx.accountId]),
+            transactions: recalculateRunningBalances(remainingTransactions, transactionAccountIds(tx)),
             accounts: applyTransactionDelta(state.accounts, tx, -1),
           };
         });
@@ -911,23 +1004,30 @@ export const useFinanceStore = create<FinanceStore>()(
       // Recurring Transaction Actions
       // ========================================
       addRecurringTransaction: (tx) => {
-        const newTx: RecurringTransaction = {
-          ...tx,
-          id: generateId(),
-          nextDate: tx.startDate,
-          createdAt: new Date().toISOString(),
-        };
-        set((state) => ({
-          recurringTransactions: [...state.recurringTransactions, newTx],
-        }));
+        set((state) => {
+          const sanitized = sanitizeRecurringInput({ ...tx, nextDate: tx.startDate }, state.accounts);
+          if (!sanitized || !sanitized.description || !sanitized.category) return {};
+          const newTx: RecurringTransaction = {
+            ...sanitized,
+            id: generateId(),
+            createdAt: nowIso(),
+          };
+          return { recurringTransactions: [...state.recurringTransactions, newTx] };
+        });
       },
 
       updateRecurringTransaction: (id, data) => {
-        set((state) => ({
-          recurringTransactions: state.recurringTransactions.map((t) =>
-            t.id === id ? { ...t, ...data } : t
-          ),
-        }));
+        set((state) => {
+          const existing = state.recurringTransactions.find((t) => t.id === id);
+          if (!existing) return {};
+          const sanitized = sanitizeRecurringInput({ ...existing, ...data }, state.accounts);
+          if (!sanitized || !sanitized.description || !sanitized.category) return {};
+          return {
+            recurringTransactions: state.recurringTransactions.map((t) =>
+              t.id === id ? { ...t, ...sanitized, id: existing.id, createdAt: existing.createdAt } : t
+            ),
+          };
+        });
       },
 
       deleteRecurringTransaction: (id) => {
@@ -972,6 +1072,10 @@ export const useFinanceStore = create<FinanceStore>()(
         const tenureMonths = Math.max(1, Math.min(1200, Math.round(toPositiveNumber(fd.tenureMonths))));
         const startDate = cleanDate(fd.startDate);
         if (!cleanText(fd.bankName) || principal <= 0 || interestRate < 0 || !isFDCompounding(fd.compoundingFrequency)) return;
+        const linkedAccountId =
+          fd.linkedAccountId && get().accounts.some((account) => account.id === fd.linkedAccountId)
+            ? fd.linkedAccountId
+            : undefined;
 
         const maturityDate = new Date(startDate);
         maturityDate.setMonth(maturityDate.getMonth() + tenureMonths);
@@ -989,6 +1093,7 @@ export const useFinanceStore = create<FinanceStore>()(
           startDate,
           maturityDate: maturityDate.toISOString().split('T')[0],
           maturityInstruction: isFDMaturityInstruction(fd.maturityInstruction) ? fd.maturityInstruction : 'Manual',
+          linkedAccountId,
           id: generateId(),
           fdId: generateFDId(),
           maturityAmount: calc.maturityAmount,
@@ -1015,9 +1120,23 @@ export const useFinanceStore = create<FinanceStore>()(
                 interestRate: data.interestRate === undefined ? undefined : toPositiveNumber(data.interestRate),
                 tenureMonths: data.tenureMonths === undefined ? undefined : Math.max(1, Math.min(1200, Math.round(toPositiveNumber(data.tenureMonths)))),
                 startDate: data.startDate === undefined ? undefined : cleanDate(data.startDate),
+                compoundingFrequency:
+                  data.compoundingFrequency === undefined || isFDCompounding(data.compoundingFrequency)
+                    ? data.compoundingFrequency
+                    : undefined,
+                maturityInstruction:
+                  data.maturityInstruction === undefined || isFDMaturityInstruction(data.maturityInstruction)
+                    ? data.maturityInstruction
+                    : undefined,
               }),
               updatedAt: nowIso(),
             };
+            if (Object.prototype.hasOwnProperty.call(data, 'linkedAccountId')) {
+              updated.linkedAccountId =
+                data.linkedAccountId && state.accounts.some((account) => account.id === data.linkedAccountId)
+                  ? data.linkedAccountId
+                  : undefined;
+            }
             if (data.principal !== undefined || data.interestRate !== undefined || data.tenureMonths !== undefined || data.compoundingFrequency !== undefined || data.startDate !== undefined) {
               const calc = calculateFDMaturity(
                 updated.principal,
@@ -1238,34 +1357,42 @@ export const useFinanceStore = create<FinanceStore>()(
       // Budget Actions
       // ========================================
       addBudget: (budget) => {
-        const amount = toPositiveNumber(budget.amount);
-        if (!budget.categoryId || amount <= 0 || !isBudgetPeriod(budget.period)) return;
+        set((state) => {
+          const amount = toPositiveNumber(budget.amount);
+          if (!state.categories.some((category) => category.id === budget.categoryId) || amount <= 0 || !isBudgetPeriod(budget.period)) return {};
 
-        const newBudget: Budget = {
-          ...budget,
-          amount,
-          alertThreshold: Math.min(100, Math.max(1, Math.round(toPositiveNumber(budget.alertThreshold, 90)))),
-          startDate: cleanDate(budget.startDate),
-          id: generateId(),
-          spent: 0,
-          createdAt: nowIso(),
-          updatedAt: nowIso(),
-        };
-        set((state) => ({ budgets: [...state.budgets, newBudget] }));
+          const newBudget: Budget = {
+            ...budget,
+            amount,
+            alertThreshold: Math.min(100, Math.max(1, Math.round(toPositiveNumber(budget.alertThreshold, 90)))),
+            startDate: cleanDate(budget.startDate),
+            id: generateId(),
+            spent: 0,
+            createdAt: nowIso(),
+            updatedAt: nowIso(),
+          };
+          return { budgets: [...state.budgets, newBudget] };
+        });
       },
 
       updateBudget: (id, data) => {
-        const sanitized = withoutUndefined({
-          ...data,
-          amount: data.amount === undefined ? undefined : toPositiveNumber(data.amount),
-          period: data.period === undefined || isBudgetPeriod(data.period) ? data.period : undefined,
-          alertThreshold: data.alertThreshold === undefined ? undefined : Math.min(100, Math.max(1, Math.round(toPositiveNumber(data.alertThreshold, 90)))),
-          startDate: data.startDate === undefined ? undefined : cleanDate(data.startDate),
-        });
         set((state) => ({
-          budgets: state.budgets.map((b) =>
-            b.id === id ? { ...b, ...sanitized, updatedAt: nowIso() } : b
-          ),
+          budgets: state.budgets.map((b) => {
+            if (b.id !== id) return b;
+            const sanitized = withoutUndefined({
+              ...data,
+              categoryId:
+                data.categoryId === undefined || state.categories.some((category) => category.id === data.categoryId)
+                  ? data.categoryId
+                  : undefined,
+              amount: data.amount === undefined ? undefined : toPositiveNumber(data.amount),
+              period: data.period === undefined || isBudgetPeriod(data.period) ? data.period : undefined,
+              alertThreshold: data.alertThreshold === undefined ? undefined : Math.min(100, Math.max(1, Math.round(toPositiveNumber(data.alertThreshold, 90)))),
+              startDate: data.startDate === undefined ? undefined : cleanDate(data.startDate),
+              isActive: data.isActive === undefined ? undefined : Boolean(data.isActive),
+            });
+            return { ...b, ...sanitized, updatedAt: nowIso() };
+          }),
         }));
       },
 
@@ -1393,10 +1520,18 @@ export const useFinanceStore = create<FinanceStore>()(
         if (lockoutEnd > Date.now()) return false;
         if (!security.pinHash || !security.pinSalt) return false;
 
-        const isValid = await verifyPinHash(pin, security.pinSalt, security.pinHash);
+        let isValid = false;
+        try {
+          isValid = await verifyPinHash(pin, security.pinSalt, security.pinHash);
+        } catch {
+          return false;
+        }
         if (isValid) {
+          const upgradedHash = security.pinHash.startsWith('pbkdf2-sha256$')
+            ? security.pinHash
+            : await hashPin(pin, security.pinSalt);
           set((state) => ({
-            security: { ...state.security, isLocked: false, failedAttempts: 0, lockoutEndTime: undefined },
+            security: { ...state.security, pinHash: upgradedHash, isLocked: false, failedAttempts: 0, lockoutEndTime: undefined },
           }));
           return true;
         }
@@ -1535,23 +1670,7 @@ export const useFinanceStore = create<FinanceStore>()(
             budgets: Array.isArray(data.budgets)
               ? data.budgets.map((budget) => sanitizeBudgetRecord(budget, finalCategories)).filter((budget): budget is Budget => Boolean(budget))
               : [],
-            settings: isRecord(data.settings)
-              ? {
-                  ...defaultSettings,
-                  theme:
-                    data.settings.theme === 'light' || data.settings.theme === 'dark' || data.settings.theme === 'system'
-                      ? data.settings.theme
-                      : defaultSettings.theme,
-                  currency: cleanText(data.settings.currency, 8) || defaultSettings.currency,
-                  dateFormat: cleanText(data.settings.dateFormat, 16) || defaultSettings.dateFormat,
-                  numberFormat:
-                    data.settings.numberFormat === 'indian' || data.settings.numberFormat === 'international'
-                      ? data.settings.numberFormat
-                      : defaultSettings.numberFormat,
-                  notificationsEnabled: Boolean(data.settings.notificationsEnabled),
-                  defaultAccountId: cleanOptionalText(data.settings.defaultAccountId, 80),
-                }
-              : defaultSettings,
+            settings: sanitizeSettingsRecord(data.settings),
             security: defaultSecurity,
           });
           return true;
@@ -1578,13 +1697,42 @@ export const useFinanceStore = create<FinanceStore>()(
       }),
       merge: (persistedState, currentState) => {
         if (!isRecord(persistedState)) return currentState;
+        const accounts = Array.isArray(persistedState.accounts)
+          ? persistedState.accounts.map(sanitizeAccountRecord).filter((account): account is Account => Boolean(account))
+          : currentState.accounts;
+        const categories = Array.isArray(persistedState.categories)
+          ? persistedState.categories.map(sanitizeCategoryRecord).filter((category): category is Category => Boolean(category))
+          : defaultCategories;
+        const finalCategories = categories.length > 0 ? categories : defaultCategories;
+        const transactions = Array.isArray(persistedState.transactions)
+          ? persistedState.transactions.map((tx) => sanitizeTransactionRecord(tx, accounts)).filter((tx): tx is Transaction => Boolean(tx))
+          : currentState.transactions;
+        const accountIds = accounts.map((account) => account.id);
+
         return {
           ...currentState,
-          ...persistedState,
-          categories: Array.isArray(persistedState.categories) ? persistedState.categories : defaultCategories,
-          settings: isRecord(persistedState.settings)
-            ? { ...defaultSettings, ...persistedState.settings }
-            : defaultSettings,
+          accounts,
+          transactions: recalculateRunningBalances(transactions, accountIds),
+          recurringTransactions: Array.isArray(persistedState.recurringTransactions)
+            ? persistedState.recurringTransactions.map((tx) => sanitizeRecurringRecord(tx, accounts)).filter((tx): tx is RecurringTransaction => Boolean(tx))
+            : currentState.recurringTransactions,
+          categories: finalCategories,
+          fixedDeposits: Array.isArray(persistedState.fixedDeposits)
+            ? persistedState.fixedDeposits.map(sanitizeFixedDepositRecord).filter((fd): fd is FixedDeposit => Boolean(fd))
+            : currentState.fixedDeposits,
+          investments: Array.isArray(persistedState.investments)
+            ? persistedState.investments.map(sanitizeInvestmentRecord).filter((investment): investment is Investment => Boolean(investment))
+            : currentState.investments,
+          insurance: Array.isArray(persistedState.insurance)
+            ? persistedState.insurance.map(sanitizeInsuranceRecord).filter((insurance): insurance is Insurance => Boolean(insurance))
+            : currentState.insurance,
+          budgets: Array.isArray(persistedState.budgets)
+            ? persistedState.budgets.map((budget) => sanitizeBudgetRecord(budget, finalCategories)).filter((budget): budget is Budget => Boolean(budget))
+            : currentState.budgets,
+          notifications: Array.isArray(persistedState.notifications)
+            ? persistedState.notifications.map(sanitizeNotificationRecord).filter((notification): notification is AppNotification => Boolean(notification))
+            : currentState.notifications,
+          settings: sanitizeSettingsRecord(persistedState.settings),
           security: sanitizeSecurity(isRecord(persistedState.security) ? persistedState.security : undefined),
         };
       },

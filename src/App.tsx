@@ -21,7 +21,6 @@ import { BudgetsPage } from '@/features/budgets/BudgetsPage';
 import { PDFExportPage } from '@/features/pdfExport/PDFExportPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { MorePage } from '@/features/MorePage';
-import './App.css';
 
 function LockScreen() {
   const security = useFinanceStore((s) => s.security);

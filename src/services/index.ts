@@ -13,6 +13,10 @@ import type {
   TaxResult,
 } from '@/types';
 
+const PIN_HASH_ALGORITHM = 'pbkdf2-sha256';
+const PIN_HASH_ITERATIONS = 150000;
+const PIN_HASH_KEY_BITS = 256;
+
 // ============================================
 // ID Generation
 // ============================================
@@ -44,12 +48,67 @@ export function isValidPin(pin: string): boolean {
   return /^\d{4}$/.test(pin);
 }
 
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  if (!/^[\da-f]+$/i.test(hex) || hex.length % 2 !== 0) {
+    throw new Error('Invalid hex value.');
+  }
+
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  const maxLength = Math.max(left.length, right.length);
+  let difference = left.length ^ right.length;
+
+  for (let i = 0; i < maxLength; i += 1) {
+    difference |= (left.charCodeAt(i) || 0) ^ (right.charCodeAt(i) || 0);
+  }
+
+  return difference === 0;
+}
+
 export function generatePinSalt(): string {
   try {
     return getRandomHex(16);
   } catch {
     throw new Error('Secure random generation is unavailable in this browser.');
   }
+}
+
+async function hashPinLegacy(pin: string, salt: string): Promise<string> {
+  const encoded = new TextEncoder().encode(`${salt}:${pin}`);
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', encoded);
+  return bytesToHex(new Uint8Array(digest));
+}
+
+async function derivePinHash(pin: string, salt: string, iterations: number): Promise<string> {
+  const keyMaterial = await globalThis.crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(pin),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await globalThis.crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      hash: 'SHA-256',
+      salt: hexToBytes(salt).buffer as ArrayBuffer,
+      iterations,
+    },
+    keyMaterial,
+    PIN_HASH_KEY_BITS
+  );
+
+  return bytesToHex(new Uint8Array(bits));
 }
 
 export async function hashPin(pin: string, salt: string): Promise<string> {
@@ -60,15 +119,24 @@ export async function hashPin(pin: string, salt: string): Promise<string> {
     throw new Error('Secure PIN hashing is unavailable in this browser.');
   }
 
-  const encoded = new TextEncoder().encode(`${salt}:${pin}`);
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', encoded);
-  return Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, '0')).join('');
+  const hash = await derivePinHash(pin, salt, PIN_HASH_ITERATIONS);
+  return `${PIN_HASH_ALGORITHM}$${PIN_HASH_ITERATIONS}$${hash}`;
 }
 
 export async function verifyPinHash(pin: string, salt: string, expectedHash: string): Promise<boolean> {
   if (!salt || !expectedHash || !isValidPin(pin)) return false;
-  const actualHash = await hashPin(pin, salt);
-  return actualHash === expectedHash;
+  if (!globalThis.crypto?.subtle) return false;
+
+  const [algorithm, iterationsValue, hashValue] = expectedHash.split('$');
+  if (algorithm === PIN_HASH_ALGORITHM && iterationsValue && hashValue) {
+    const iterations = Number.parseInt(iterationsValue, 10);
+    if (!Number.isInteger(iterations) || iterations < 100000) return false;
+    const actualHash = await derivePinHash(pin, salt, iterations);
+    return constantTimeEqual(actualHash, hashValue);
+  }
+
+  const legacyHash = await hashPinLegacy(pin, salt);
+  return constantTimeEqual(legacyHash, expectedHash);
 }
 
 // ============================================
@@ -144,7 +212,7 @@ export function getMonthName(monthKey: string): string {
 // Number Formatting
 // ============================================
 export function formatNumberIndian(num: number): string {
-  if (isNaN(num)) return '0';
+  if (!Number.isFinite(num)) return '0';
   const absNum = Math.abs(num);
   const sign = num < 0 ? '-' : '';
 
@@ -550,7 +618,7 @@ export function calculateCompoundInterest(
   const totalInterest = A - P;
 
   const yearlyBreakdown: CompoundInterestResult['yearlyBreakdown'] = [];
-  for (let year = 1; year <= timeYears; year++) {
+  for (let year = 1; year <= t; year++) {
     const yearA = P * Math.pow(1 + r / n, n * year);
     const prevA =
       year > 1 ? P * Math.pow(1 + r / n, n * (year - 1)) : P;
@@ -628,31 +696,4 @@ export function calculateIncomeTax(annualIncome: number, deductions80C: number, 
     totalPayable: Math.round(totalPayable * 100) / 100,
   };
 }
-
-// ============================================
-// Storage Wrapper
-// ============================================
-export const storage = {
-  get: (key: string): string | null => {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  set: (key: string, value: string): void => {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      // Storage full or unavailable
-    }
-  },
-  remove: (key: string): void => {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // ignore
-    }
-  },
-};
 

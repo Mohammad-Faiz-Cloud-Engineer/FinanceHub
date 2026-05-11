@@ -23,13 +23,13 @@ export function AmountDisplay({
   const { displayValue } = useAnimatedCounter(animated ? value : 0, 800, animated);
 
   const displayAmount = animated ? displayValue : value;
+  const isPositive = value >= 0;
   const formatted = formatCurrencyFull(
-    displayAmount,
+    showSign ? Math.abs(displayAmount) : displayAmount,
     currency || settings.currency,
     settings.numberFormat
   );
 
-  const isPositive = value >= 0;
   const sign = showSign ? (isPositive ? '+' : '-') : '';
 
   const sizeClasses = {

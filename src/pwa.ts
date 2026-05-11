@@ -147,6 +147,8 @@ export function registerServiceWorker(): void {
     const baseUrl = import.meta.env.BASE_URL;
     const serviceWorkerUrl = `${baseUrl}sw.js`;
 
-    navigator.serviceWorker.register(serviceWorkerUrl, { scope: baseUrl }).catch(() => undefined);
+    navigator.serviceWorker.register(serviceWorkerUrl, { scope: baseUrl }).catch(() => {
+      document.documentElement.dataset.serviceWorker = 'registration-failed';
+    });
   });
 }

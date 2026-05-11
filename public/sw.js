@@ -2,6 +2,7 @@ const CACHE_PREFIX = 'financehub';
 const CACHE_VERSION = '2026-05-11';
 const SHELL_CACHE = `${CACHE_PREFIX}-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `${CACHE_PREFIX}-runtime-${CACHE_VERSION}`;
+const NETWORK_TIMEOUT_MS = 10000;
 const scopePath = new URL(self.registration.scope).pathname;
 
 const withScope = (path) => new URL(path, self.registration.scope).toString();
@@ -17,6 +18,17 @@ const APP_SHELL = [
   'icons/maskable-192.png',
   'icons/maskable-512.png',
 ].map(withScope);
+
+async function fetchWithTimeout(request) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS);
+
+  try {
+    return await fetch(request, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 async function cacheAppShell() {
   const cache = await caches.open(SHELL_CACHE);
@@ -58,7 +70,7 @@ async function handleNavigation(request) {
   const shellCache = await caches.open(SHELL_CACHE);
 
   try {
-    const response = await fetch(request);
+    const response = await fetchWithTimeout(request);
     if (response.ok) {
       await shellCache.put(withScope('index.html'), response.clone());
     }
@@ -80,10 +92,12 @@ async function staleWhileRevalidate(request) {
   const cache = await caches.open(RUNTIME_CACHE);
   const cached = await cache.match(request);
 
-  const fetchAndCache = fetch(request)
+  const fetchAndCache = fetchWithTimeout(request)
     .then((response) => {
       if (response.ok) {
-        cache.put(request, response.clone()).catch(() => undefined);
+        cache.put(request, response.clone()).catch((error) => {
+          console.warn('FinanceHub runtime cache update failed.', error);
+        });
       }
       return response;
     })
@@ -97,7 +111,9 @@ async function staleWhileRevalidate(request) {
     );
 
   if (cached) {
-    fetchAndCache.catch(() => undefined);
+    fetchAndCache.catch((error) => {
+      console.warn('FinanceHub runtime refresh failed.', error);
+    });
     return cached;
   }
 

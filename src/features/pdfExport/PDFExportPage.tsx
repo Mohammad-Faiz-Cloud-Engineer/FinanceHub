@@ -21,13 +21,34 @@ export function PDFExportPage() {
   const account = accounts.find((a) => a.id === selectedAccount);
   const range = presets[dateRange];
 
+  const getAccountDelta = (tx: typeof transactions[number]) => {
+    if (tx.type === 'Income' && tx.accountId === selectedAccount) return tx.amount;
+    if (tx.type === 'Expense' && tx.accountId === selectedAccount) return -tx.amount;
+    if (tx.type === 'Transfer') {
+      if (tx.accountId === selectedAccount) return -tx.amount;
+      if (tx.toAccountId === selectedAccount) return tx.amount;
+    }
+    return 0;
+  };
+
   const filteredTxs = transactions
-    .filter((t) => t.accountId === selectedAccount && t.date >= range.start && t.date <= range.end)
+    .filter((t) => getAccountDelta(t) !== 0 && t.date >= range.start && t.date <= range.end)
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const totalCredit = filteredTxs.filter((t) => t.type === 'Income').reduce((s, t) => s + t.amount, 0);
-  const totalDebit = filteredTxs.filter((t) => t.type === 'Expense' || t.type === 'Transfer').reduce((s, t) => s + t.amount, 0);
-  const openingBalance = (account?.balance || 0) - (totalCredit - totalDebit);
+  const totalCredit = filteredTxs.reduce((sum, tx) => sum + Math.max(getAccountDelta(tx), 0), 0);
+  const totalDebit = filteredTxs.reduce((sum, tx) => sum + Math.abs(Math.min(getAccountDelta(tx), 0)), 0);
+  const openingBalance = (account?.balance || 0) - filteredTxs.reduce((sum, tx) => sum + getAccountDelta(tx), 0);
+  const statementRows = filteredTxs.reduce<{
+    rows: { tx: typeof transactions[number]; delta: number; balance: number }[];
+    balance: number;
+  }>((statement, tx) => {
+    const delta = getAccountDelta(tx);
+    const balance = statement.balance + delta;
+    return {
+      rows: [...statement.rows, { tx, delta, balance }],
+      balance,
+    };
+  }, { rows: [], balance: openingBalance }).rows;
   const escapeHtml = (value: string): string =>
     value
       .replaceAll('&', '&amp;')
@@ -37,11 +58,8 @@ export function PDFExportPage() {
       .replaceAll("'", '&#39;');
 
   const generatePDF = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.opener = null;
-
     const accountBankName = escapeHtml(account?.bankName || 'Bank Statement');
+    const accountHolderName = escapeHtml(account?.accountHolderName || 'Account User');
     const accountNumber = escapeHtml(maskAccountNumber(account?.accountNumber || ''));
     const accountType = escapeHtml(account?.accountType || 'Savings');
     const ifscCode = escapeHtml(account?.ifscCode || 'N/A');
@@ -83,7 +101,7 @@ export function PDFExportPage() {
         <div class="account-info">
           <div>
             <p>Account Holder</p>
-            <p>Account User</p>
+            <p>${accountHolderName}</p>
           </div>
           <div>
             <p>Account Number</p>
@@ -130,14 +148,14 @@ export function PDFExportPage() {
             </tr>
           </thead>
           <tbody>
-            ${filteredTxs.map((tx) => `
+            ${statementRows.map(({ tx, delta, balance }) => `
               <tr>
                 <td>${formatDate(tx.date)}</td>
                 <td>${escapeHtml(tx.description)}</td>
                 <td>${escapeHtml(tx.category)}</td>
-                <td style="text-align:right" class="${tx.type !== 'Income' ? 'debit' : ''}">${tx.type !== 'Income' ? tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
-                <td style="text-align:right" class="${tx.type === 'Income' ? 'credit' : ''}">${tx.type === 'Income' ? tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
-                <td style="text-align:right" class="balance">${(tx.runningBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td style="text-align:right" class="${delta < 0 ? 'debit' : ''}">${delta < 0 ? Math.abs(delta).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                <td style="text-align:right" class="${delta > 0 ? 'credit' : ''}">${delta > 0 ? delta.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                <td style="text-align:right" class="balance">${balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -157,8 +175,12 @@ export function PDFExportPage() {
       </html>
     `;
 
-    printWindow.document.write(html);
-    printWindow.document.close();
+    const blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+    const opened = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    if (opened) {
+      opened.opener = null;
+    }
   };
 
   return (
@@ -207,7 +229,7 @@ export function PDFExportPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-[var(--text-tertiary)]">Transactions</p>
-                <p className="text-lg font-bold text-[var(--text-primary)]">{filteredTxs.length}</p>
+              <p className="text-lg font-bold text-[var(--text-primary)]">{statementRows.length}</p>
               </div>
               <div>
                 <p className="text-xs text-[var(--text-tertiary)]">Period</p>
@@ -262,19 +284,19 @@ export function PDFExportPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredTxs.slice(0, 20).map((tx) => (
+              {statementRows.slice(0, 20).map(({ tx, delta, balance }) => (
                 <tr key={tx.id} className="border-b border-gray-100">
                   <td className="p-2">{formatDate(tx.date)}</td>
                   <td className="p-2">{tx.description}</td>
-                  <td className="p-2 text-right text-red-500">{tx.type !== 'Income' ? formatCurrency(tx.amount) : '-'}</td>
-                  <td className="p-2 text-right text-emerald-500">{tx.type === 'Income' ? formatCurrency(tx.amount) : '-'}</td>
-                  <td className="p-2 text-right font-semibold">{formatCurrency(tx.runningBalance || 0)}</td>
+                  <td className="p-2 text-right text-red-500">{delta < 0 ? formatCurrency(Math.abs(delta)) : '-'}</td>
+                  <td className="p-2 text-right text-emerald-500">{delta > 0 ? formatCurrency(delta) : '-'}</td>
+                  <td className="p-2 text-right font-semibold">{formatCurrency(balance)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {filteredTxs.length > 20 && (
-            <p className="text-center text-xs text-gray-400 mt-4">... and {filteredTxs.length - 20} more transactions</p>
+          {statementRows.length > 20 && (
+            <p className="text-center text-xs text-gray-400 mt-4">... and {statementRows.length - 20} more transactions</p>
           )}
         </motion.div>
       )}

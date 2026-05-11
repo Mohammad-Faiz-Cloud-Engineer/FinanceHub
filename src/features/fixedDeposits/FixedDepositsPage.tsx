@@ -657,7 +657,7 @@ export function FixedDepositsPage() {
                     {selectedFD.tdsAmount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-[var(--text-secondary)]">TDS (10%)</span>
-                        <span className="font-bold text-red-500 tabular-ums">-{formatCurrency(selectedFD.tdsAmount)}</span>
+                        <span className="font-bold text-red-500 tabular-nums">-{formatCurrency(selectedFD.tdsAmount)}</span>
                       </div>
                     )}
                   </div>
