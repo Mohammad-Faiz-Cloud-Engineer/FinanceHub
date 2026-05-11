@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { LockKeyhole } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
@@ -85,6 +85,14 @@ function LockScreen() {
   );
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
+  return null;
+}
+
 function AppContent() {
   const { isDark } = useTheme();
   const initializeData = useFinanceStore((s) => s.initializeData);
@@ -101,6 +109,7 @@ function AppContent() {
 
   return (
     <div className={`app-shell min-h-screen transition-colors duration-300 ${isDark ? 'dark' : ''}`} style={{ backgroundColor: 'var(--background)' }}>
+      <ScrollToTop />
       <AppHeader />
       <main>
         <AnimatePresence mode="wait">
