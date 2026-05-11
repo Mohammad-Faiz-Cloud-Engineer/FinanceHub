@@ -252,11 +252,6 @@ export function FixedDepositsPage() {
                 className="bg-[var(--surface)] rounded-2xl p-5 border border-[var(--border)] cursor-pointer"
                 style={{
                   boxShadow: 'var(--shadow-card)',
-                  borderLeft: `4px solid ${
-                    fd.status === 'Active' ? '#10B981' :
-                    fd.status === 'MaturingSoon' ? '#F59E0B' :
-                    fd.status === 'Matured' ? '#3B82F6' : '#6B7280'
-                  }`,
                 }}
                 onClick={() => { setSelectedFD(fd); setShowDetailModal(true); }}
               >
