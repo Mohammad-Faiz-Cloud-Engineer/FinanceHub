@@ -15,7 +15,7 @@ export function AppHeader() {
   return (
     <>
       <header
-        className={`fixed top-0 left-0 right-0 z-40 h-16 flex items-center justify-between px-4 sm:px-6 border-b transition-colors duration-200 ${
+        className={`app-header fixed top-0 left-0 right-0 z-40 h-16 flex items-center justify-between px-4 sm:px-6 border-b transition-colors duration-200 ${
           isScrolled
             ? 'bg-[var(--surface)]/90 backdrop-blur-xl border-[var(--border)]'
             : 'bg-[var(--background)]/90 backdrop-blur-xl border-transparent'
@@ -62,7 +62,7 @@ export function AppHeader() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="fixed top-16 right-4 z-50 w-80 max-h-[400px] bg-[var(--surface)] rounded-2xl shadow-2xl border border-[var(--border)] overflow-hidden"
+              className="app-notification-panel fixed top-16 right-4 z-50 w-80 max-h-[400px] bg-[var(--surface)] rounded-2xl shadow-2xl border border-[var(--border)] overflow-hidden"
             >
               <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
                 <h3 className="font-semibold text-[var(--text-primary)]">

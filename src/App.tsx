@@ -5,6 +5,7 @@ import { LockKeyhole } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { useFinanceStore } from '@/store';
 import { useTheme } from '@/theme';
+import { useNativePwaShell } from '@/pwa';
 import { Button } from '@/components/ui/button';
 import { AppHeader } from '@/components/common/AppHeader';
 import { BottomNav } from '@/components/common/BottomNav';
@@ -89,6 +90,7 @@ function AppContent() {
   const { isDark } = useTheme();
   const initializeData = useFinanceStore((s) => s.initializeData);
   const security = useFinanceStore((s) => s.security);
+  useNativePwaShell(isDark);
 
   useEffect(() => {
     initializeData();
@@ -99,7 +101,7 @@ function AppContent() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDark ? 'dark' : ''}`} style={{ backgroundColor: 'var(--background)' }}>
+    <div className={`app-shell min-h-screen transition-colors duration-300 ${isDark ? 'dark' : ''}`} style={{ backgroundColor: 'var(--background)' }}>
       <AppHeader />
       <main>
         <AnimatePresence mode="wait">

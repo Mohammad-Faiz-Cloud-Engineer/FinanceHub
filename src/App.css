@@ -1,5 +1,70 @@
 /* FinanceHub - Global Styles */
 
+:root {
+  --pwa-safe-area-top: env(safe-area-inset-top, 0px);
+  --pwa-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --pwa-theme-color: #F8F9FA;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background-color: var(--background);
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+html.pwa-standalone,
+html.pwa-standalone body {
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  background-color: var(--background);
+}
+
+html.pwa-standalone body {
+  -webkit-overflow-scrolling: touch;
+}
+
+html.pwa-standalone #root,
+html.pwa-standalone .app-shell {
+  min-height: 100dvh;
+}
+
+html.pwa-standalone .app-header {
+  height: calc(4rem + var(--pwa-safe-area-top));
+  padding-top: var(--pwa-safe-area-top);
+}
+
+html.pwa-standalone .app-notification-panel {
+  top: calc(4rem + var(--pwa-safe-area-top));
+}
+
+html.pwa-standalone .app-bottom-nav {
+  height: calc(4rem + var(--pwa-safe-area-bottom));
+  padding-bottom: var(--pwa-safe-area-bottom);
+}
+
+html.pwa-standalone .app-bottom-nav-inner {
+  height: 4rem;
+}
+
+html.pwa-standalone main {
+  padding-top: var(--pwa-safe-area-top);
+  padding-bottom: var(--pwa-safe-area-bottom);
+}
+
 /* Smooth scroll */
 html {
   scroll-behavior: smooth;
