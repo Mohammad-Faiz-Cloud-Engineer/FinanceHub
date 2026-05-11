@@ -1,0 +1,53 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules/
+build/
+.next/
+coverage/
+.nyc_output/
+.cache/
+__pycache__/
+target/
+dist-ssr/
+*.local
+pr.md
+audit-report.md
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Development files
+info.md
+
+# Environment variables
+.env
+.env.*
+!.env.example
+.env.local
+.env.*.local
+*.pem
+*.key
+*credentials*.json
+*adminsdk*.json
+*.tmp
+*.pid
+*.bak
+*.orig
+*_old.*
+*_copy.*
