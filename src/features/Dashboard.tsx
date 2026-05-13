@@ -133,7 +133,12 @@ export function Dashboard() {
         transition={{ duration: 0.4, delay: 0.1 }}
         className="mb-4"
       >
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="relative">
+          <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-[var(--background)] to-transparent z-10" />
+          <div
+            className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"
+            style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}
+          >
           {quickActions.map((action) => {
             const Icon = action.icon;
             return (
@@ -156,6 +161,7 @@ export function Dashboard() {
               </motion.button>
             );
           })}
+          </div>
         </div>
       </motion.div>
 
@@ -187,7 +193,10 @@ export function Dashboard() {
             onAction={() => navigate('/accounts')}
           />
         ) : (
-          <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+          <div
+            className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory"
+            style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}
+          >
             {accounts.map((account) => (
               <motion.div
                 key={account.id}
