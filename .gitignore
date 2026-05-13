@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules/
 build/
+dist
 .next/
 coverage/
 .nyc_output/

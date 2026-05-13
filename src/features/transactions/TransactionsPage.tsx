@@ -185,7 +185,13 @@ export function TransactionsPage() {
       </div>
 
       {/* Filter Pills */}
-      <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="relative mb-3">
+        {/* fade hint on the right so users know it's scrollable */}
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-[var(--background)] to-transparent z-10" />
+        <div
+          className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide"
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x' }}
+        >
         {filterTypes.map((ft) => (
           <button
             key={ft.value}
@@ -205,6 +211,7 @@ export function TransactionsPage() {
         >
           <Filter size={12} /> More
         </button>
+        </div>
       </div>
 
       {/* Advanced Filters */}
