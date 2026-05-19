@@ -75,7 +75,6 @@ export function Dashboard() {
             Total Net Worth
           </span>
           <div className="w-16 h-8">
-            {/* Mini sparkline placeholder */}
             <svg viewBox="0 0 80 30" className="w-full h-full">
               <defs>
                 <linearGradient id="sparklineGrad" x1="0" y1="0" x2="0" y2="1">

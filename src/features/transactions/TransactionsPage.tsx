@@ -270,7 +270,7 @@ export function TransactionsPage() {
                   {formatDateRelative(date)}
                 </span>
                 <span className="text-xs text-[var(--text-tertiary)] ml-2">
-                  • {formatCurrency(grouped[date].reduce((s, t) => s + (t.type === 'Income' ? -t.amount : t.amount), 0))}
+                    • {formatCurrency(grouped[date].reduce((s, t) => s + (t.type === 'Expense' ? -t.amount : (t.type === 'Transfer' ? 0 : t.amount)), 0))}
                 </span>
               </div>
               <div className="space-y-1">

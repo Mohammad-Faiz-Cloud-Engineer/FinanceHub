@@ -11,6 +11,7 @@ import {
   BarChart3,
   FileText,
   Settings,
+  ChevronRight,
 } from 'lucide-react';
 
 const menuGroups = [
@@ -83,9 +84,7 @@ export function MorePage() {
                     <span className="text-sm font-medium text-[var(--text-primary)] flex-1">
                       {item.label}
                     </span>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-[var(--text-tertiary)]">
-                      <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <ChevronRight size={14} className="text-[var(--text-tertiary)]" />
                   </motion.button>
                 );
               })}
